@@ -4,7 +4,10 @@
  */
 package betatorrentclient;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
 import java.net.*;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -49,10 +52,9 @@ public class BetaTorrentClient {
                     }
                     strParam += key + "=" + param.get(key);
                 }
-                
+
                 //Socket通信
-                byte[] ret1 = httpTestConnection(url, strParam);
-                Map m = BenCodingUtil.parseBencoding(ret1);
+                Map m = BenCodingUtil.parseBencoding(urlConnection(url, strParam));
                 BenCodingUtil.debugPrint(m);
             } catch (Exception ex) {
                 Logger.getLogger(BetaTorrentClient.class.getName()).log(Level.SEVERE, null, ex);
@@ -61,90 +63,41 @@ public class BetaTorrentClient {
     }
 
     /**
-     * Socket 通信
-     * 
+     * URLConnection 通信
+     *
      * @param url
-     * @param strParam 
+     * @param strParam
      */
-    public static byte[] socketTestConnection(URL url, String strParam) {
-        byte[] ret = new byte[0];
-        
-        try {
-            Socket socket = null;
-            try {
-                int port = (url.getPort() == -1) ? 80 : url.getPort();
-                socket = new Socket(url.getHost(), port);
-
-                BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                bw.write("GET " + url.getPath() + "?" + strParam + " HTTP/1.0\r\n");
-                bw.write("Host: " + url.getHost() + ":" + url.getPort() + " \r\n");
-                bw.write("Accept-encoding: gzip, deflate\r\n");
-                bw.write("User-agent: MyTorrentClient/0.0.1\r\n");
-                bw.write("Connection: keep-alive\r\n");
-                bw.write("\r\n");
-                bw.flush();
-
-
-                BufferedInputStream br = new BufferedInputStream(socket.getInputStream());
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                int cnt = -1;
-                byte[] buf = new byte[1024];
-                while ((cnt = br.read(buf, 0, buf.length)) != -1) {
-                    out.write(buf, 0, cnt);
-                }
-                ret = out.toByteArray();
-            } finally {
-                if (socket != null) {
-                    socket.close();
-                }
-            }
-        } catch (Exception err) {
-            err.printStackTrace();
-        }
-        return ret;
-    }
-    
-    
-    /**
-     * Socket 通信
-     * 
-     * @param url
-     * @param strParam 
-     */
-    public static byte[] httpTestConnection(URL url, String strParam) {
+    public static byte[] urlConnection(URL url, String strParam) throws MalformedURLException, IOException {
         byte[] ret = new byte[0];
         Socket socket = null;
         try {
-            try {
-                //debug code
-                System.out.println(">> " + new URL(url + "?" + strParam));                
-                
-                URLConnection connection = new URL(url + "?" + strParam).openConnection();
-                connection.setRequestProperty("User-Agent", "test");
-                connection.setReadTimeout(3000);
-                connection.setRequestProperty("Connection", "close");
-                connection.setRequestProperty("Accept", "text/html");
+            //debug code
+            System.out.println(">> " + new URL(url + "?" + strParam));
 
-                
-                BufferedInputStream br = new BufferedInputStream(connection.getInputStream());
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                int cnt = -1;
-                byte[] buf = new byte[1024];
-                while ((cnt = br.read(buf, 0, buf.length)) != -1) {
-                    out.write(buf, 0, cnt);
-                }
-     
-                ret = out.toByteArray();
-            } finally {
-                if (socket != null) {
-                    socket.close();
-                }
+            URLConnection connection = new URL(url + "?" + strParam).openConnection();
+            connection.setRequestProperty("User-Agent", "test");
+            connection.setReadTimeout(3000);
+            connection.setRequestProperty("Connection", "close");
+            connection.setRequestProperty("Accept", "text/html");
+
+
+            BufferedInputStream br = new BufferedInputStream(connection.getInputStream());
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            int cnt = -1;
+            byte[] buf = new byte[1024];
+            while ((cnt = br.read(buf, 0, buf.length)) != -1) {
+                out.write(buf, 0, cnt);
             }
-        } catch (Exception err) {
-            err.printStackTrace();
+
+            ret = out.toByteArray();
+        } finally {
+            if (socket != null) {
+                socket.close();
+            }
         }
-        
+
+
         return ret;
     }
-    
 }
