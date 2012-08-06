@@ -21,38 +21,12 @@ public class BetaTorrentClient {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        Thread t = new Thread(new Runnable() {
-
-            public void run() {
-                try {
-                    ServerSocket ssoc = new ServerSocket(6881);
-                    while (true) {
-                        Socket soc = ssoc.accept();
-                        BufferedReader br = new BufferedReader(new InputStreamReader(soc.getInputStream()));
-
-                        String line = "";
-                        while ((line = br.readLine()) != null) {
-                            System.out.println(">[ " + line);
-                        }
-                        soc.close();
-                    }
-                } catch (IOException ex) {
-                    Logger.getLogger(BetaTorrentClient.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        });
-
-//        t.start();
-
-
-        trackerGET();
-
-    }
-
-    public static void trackerGET() {
         // TODO code application logic here
         File f = new File("C:/Users/mitsu/Downloads/CentOS-5.3-i386-bin-DVD.torrent");
+        trackerGET(f);
+    }
 
+    public static void trackerGET(File f) {
         TorrentBean torrent = new TorrentBean(f);
         for (URI uri : torrent.getAnnounceList()) {
             try {
@@ -65,7 +39,7 @@ public class BetaTorrentClient {
                 param.put("uploaded", "0");                         //UL済みbyte数
                 param.put("downloaded", "0");                       //DL済みbyte数
                 param.put("left", "155062");                        //ファイルの全体のサイズから現在ダウンロードが完了したピースのバイト数
-                param.put("compact", "1");                          //レスポンスで返すピアのリストを従来のbencodeで返すか、IPとポート番号のバイナリ値で返すかを制御します。1に設定されている場合はバイナリ値で返します。これは、以前のBitTorrentがbencodeで設定されていることを前提としていたため、下位互換性のために作成されました。
+                param.put("compact", "0");                          //レスポンスで返すピアのリストを従来のbencodeで返すか、IPとポート番号のバイナリ値で返すかを制御します。1に設定されている場合はバイナリ値で返します。これは、以前のBitTorrentがbencodeで設定されていることを前提としていたため、下位互換性のために作成されました。
                 param.put("event", "started");                      //イベント名(started,stopped,completed)
 
                 String strParam = "";
@@ -77,8 +51,9 @@ public class BetaTorrentClient {
                 }
                 
                 //Socket通信
-                socketTestConnection(url, strParam);
-                httpTestConnection(url, strParam);
+                byte[] ret1 = httpTestConnection(url, strParam);
+                Map m = BenCodingUtil.parseBencoding(ret1);
+                BenCodingUtil.debugPrint(m);
             } catch (Exception ex) {
                 Logger.getLogger(BetaTorrentClient.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -91,15 +66,16 @@ public class BetaTorrentClient {
      * @param url
      * @param strParam 
      */
-    public static void socketTestConnection(URL url, String strParam) {
-        int port = (url.getPort() == -1) ? 80 : url.getPort();
-        Socket socket = null;
+    public static byte[] socketTestConnection(URL url, String strParam) {
+        byte[] ret = new byte[0];
+        
         try {
+            Socket socket = null;
             try {
+                int port = (url.getPort() == -1) ? 80 : url.getPort();
                 socket = new Socket(url.getHost(), port);
 
                 BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 bw.write("GET " + url.getPath() + "?" + strParam + " HTTP/1.0\r\n");
                 bw.write("Host: " + url.getHost() + ":" + url.getPort() + " \r\n");
                 bw.write("Accept-encoding: gzip, deflate\r\n");
@@ -109,11 +85,14 @@ public class BetaTorrentClient {
                 bw.flush();
 
 
-                String line = "";
-                while ((line = br.readLine()) != null) {
-                    System.out.println(line);
+                BufferedInputStream br = new BufferedInputStream(socket.getInputStream());
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                int cnt = -1;
+                byte[] buf = new byte[1024];
+                while ((cnt = br.read(buf, 0, buf.length)) != -1) {
+                    out.write(buf, 0, cnt);
                 }
-
+                ret = out.toByteArray();
             } finally {
                 if (socket != null) {
                     socket.close();
@@ -122,6 +101,7 @@ public class BetaTorrentClient {
         } catch (Exception err) {
             err.printStackTrace();
         }
+        return ret;
     }
     
     
@@ -131,7 +111,8 @@ public class BetaTorrentClient {
      * @param url
      * @param strParam 
      */
-    public static void httpTestConnection(URL url, String strParam) {
+    public static byte[] httpTestConnection(URL url, String strParam) {
+        byte[] ret = new byte[0];
         Socket socket = null;
         try {
             try {
@@ -145,16 +126,15 @@ public class BetaTorrentClient {
                 connection.setRequestProperty("Accept", "text/html");
 
                 
-                Reader br = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-
+                BufferedInputStream br = new BufferedInputStream(connection.getInputStream());
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
                 int cnt = -1;
-                char[] buf = new char[1024];
+                byte[] buf = new byte[1024];
                 while ((cnt = br.read(buf, 0, buf.length)) != -1) {
-                    System.out.println(new String(buf, 0, cnt));
+                    out.write(buf, 0, cnt);
                 }
      
-                
-
+                ret = out.toByteArray();
             } finally {
                 if (socket != null) {
                     socket.close();
@@ -163,6 +143,8 @@ public class BetaTorrentClient {
         } catch (Exception err) {
             err.printStackTrace();
         }
+        
+        return ret;
     }
     
 }
